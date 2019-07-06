@@ -2,31 +2,34 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-[RequireComponent(typeof(IBoid))]
-public class Player : MonoBehaviour
+namespace AISandbox
 {
-    #region Variables
-    private IBoid _boid;
-    #endregion
+    [RequireComponent(typeof(IBoid))]
+    public class Player : MonoBehaviour
+    {
+        #region Variables
+        private IBoid _boid;
+        #endregion
 
-    #region Getters_Setters
+        #region Getters_Setters
 
-    #endregion
+        #endregion
 
-    #region Unity
-    private void Awake()
-	{
-        _boid = GetComponent<IBoid>();
+        #region Unity
+        private void Awake()
+        {
+            _boid = GetComponent<IBoid>();
+        }
+
+        private void Update()
+        {
+            Vector2 steering = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"));
+            _boid.Steering = steering;
+        }
+        #endregion
+
+        #region Custom
+
+        #endregion
     }
-	
-	private void Update()
-	{
-        Vector2 steering = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"));
-        _boid.Steering = steering;
-    }
-	#endregion
-
-	#region Custom
-
-	#endregion
 }
