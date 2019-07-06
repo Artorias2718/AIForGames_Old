@@ -8,7 +8,7 @@ namespace AISandbox
     public class Player : MonoBehaviour
     {
         #region Variables
-        private IBoid m_boid;
+        private IBoid _boid;
         #endregion
 
         #region Getters_Setters
@@ -18,13 +18,13 @@ namespace AISandbox
         #region Unity
         private void Awake()
         {
-            m_boid = GetComponent<IBoid>();
+            _boid = GetComponent<IBoid>();
         }
 
         private void Update()
         {
             Vector2 steering = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"));
-            m_boid.Steering = steering;
+            _boid.Steering = steering;
         }
         #endregion
 

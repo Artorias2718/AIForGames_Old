@@ -2,28 +2,31 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public interface IBoid 
+namespace AISandbox
 {
-    #region Variables
+    public interface IBoid
+    {
+        #region Variables
 
-    #endregion
+        #endregion
 
-    #region Getters_Setters
+        #region Getters_Setters
 
-    float Max_Velocity{ get; }
-    float Max_Steering_Acceleration { get; }
+        float Max_Velocity { get; }
+        float Max_Steering_Acceleration { get; }
 
-    Vector2 Position { get; set; }
-    Vector2 Velocity { get; set; }
-    Vector2 Steering { get; set; }
+        Vector2 Position { get; set; }
+        Vector2 Velocity { get; set; }
+        Vector2 Steering { get; set; }
 
-    #endregion
+        #endregion
 
-    #region Unity
+        #region Unity
 
-    #endregion
+        #endregion
 
-    #region Custom
+        #region Custom
 
-    #endregion
+        #endregion
+    }
 }

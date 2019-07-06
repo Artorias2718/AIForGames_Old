@@ -2,197 +2,231 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Avoidance : MonoBehaviour
+namespace AISandbox
 {
-    #region Variables
-    public Transform m_obstalces_container;
-    private const float m_MAX_AVOIDANCE_FORCE = 15.0f;
-    private const float m_LINE_OF_SIGHT = 20.0f;
-    private Vector2 m_ahead;
-    private IBoid m_boid;
-
-    private Obstacle[] m_obstalces;
-
-    private Vector2[] m_vertices;
-    private LineRenderer m_box;
-    private Vector2 m_projected_vec;
-
-    private SpriteRenderer m_sprite_renderer;
-
-    #endregion
-
-    #region Getters_Setters
-
-    #endregion
-
-    #region Unity
-    private void Awake()
+    [RequireComponent(typeof(IBoid))]
+    public class Avoidance : MonoBehaviour
     {
-        m_boid = GetComponentInChildren<Boid>();
-        m_sprite_renderer = GetComponent<SpriteRenderer>();
+        #region Variables
+        public Transform m_obstalces_container;
+        private const float m_MAX_AVOIDANCE_FORCE = 15.0f;
+        private const float m_LINE_OF_SIGHT = 20.0f;
+        private Vector2 m_ahead;
+        private IBoid m_boid;
 
-        m_box = transform.Find("Box").GetComponent<LineRenderer>();
-        m_vertices = new Vector2[4];
+        private Obstacle[] m_obstalces;
 
-        m_obstalces = m_obstalces_container.GetComponentsInChildren<Obstacle>();
-        m_boid.Velocity = Random.insideUnitSphere;
-    }
+        private Vector2[] m_vertices;
+        private LineRenderer m_box;
+        private Vector2 m_projected_vec;
 
-    private void Update()
-    {
-        DrawBox();
-    }
+        private SpriteRenderer m_sprite_renderer;
 
-    private void FixedUpdate()
-    {
-        Vector2 steering = Avoid();
+        #endregion
 
-        // Pass all parameters to the character control script.
+        #region Getters_Setters
 
-        m_boid.Steering = steering;
-        //m_boid.Velocity = m_boid.Velocity + steering;
-    }
-    #endregion
+        #endregion
 
-    #region Custom
-
-    private void DrawBox()
-    {
-        m_ahead = m_boid.Velocity.normalized * m_LINE_OF_SIGHT;
-        m_vertices[0] = new Vector2(m_ahead.y, m_ahead.x * -1).normalized * m_boid.Radius;
-
-        m_vertices[1] = m_vertices[0] + m_ahead;
-
-        m_vertices[2] = new Vector2(m_ahead.y * -1, m_ahead.x).normalized * m_boid.Radius + m_ahead;
-
-        m_vertices[3] = new Vector2(m_ahead.y * -1, m_ahead.x).normalized * m_boid.Radius;
-
-        for (int i = 0; i < m_vertices.Length; i++)
+        #region Unity
+        private void Awake()
         {
-            m_box.SetPosition(i, m_vertices[i]);
-        }
-    }
+            m_boid = GetComponentInChildren<Boid>();
+            m_sprite_renderer = GetComponent<SpriteRenderer>();
 
-    private Vector3 Avoid()
-    {
-        m_ahead = m_boid.Position + m_LINE_OF_SIGHT * m_boid.Velocity.normalized;
-        Obstacle nearest_obstacle = FindNearestObstacle();
+            m_box = transform.Find("Box").GetComponent<LineRenderer>();
+            m_vertices = new Vector2[4];
 
-        Vector2 avoidance = Vector2.zero;
-
-        if (nearest_obstacle != null)
-        {
-            avoidance = m_MAX_AVOIDANCE_FORCE * (m_ahead - nearest_obstacle.Position).normalized;
-        }
-        else
-        {
-            avoidance = m_boid.Velocity;
+            m_obstalces = m_obstalces_container.GetComponentsInChildren<Obstacle>();
+            m_boid.Velocity = Random.insideUnitSphere;
         }
 
-        return avoidance;
-    }
-
-    private bool LineIntersectsCircle()
-    {
-        Obstacle obstacle = FindNearestObstacle();
-
-        if (obstacle != null)
+        private void Update()
         {
-            m_projected_vec = GetProjectedVector(obstacle.transform.position, m_ahead);
-            m_boid.Steering = (obstacle.Position - (m_projected_vec + m_boid.Position)).normalized;
-            return true;
+            DrawBox();
         }
-        return false;
-    }
 
-    private Obstacle FindNearestObstacle()
-    {
-        Obstacle nearest_obstacle = null;
-        float mostThreateningDistance = m_LINE_OF_SIGHT;
-        List<Obstacle> inSight = GetObstaclesInLineOfSight();
-        if (inSight.Count == 0)
-            return nearest_obstacle;
-        foreach (Obstacle obstacle in inSight)
+        private void FixedUpdate()
         {
-            Vector2 obstaclePos = obstacle.gameObject.transform.position;
-            m_projected_vec = GetProjectedVector(obstaclePos, m_ahead.normalized);
-            float projectedMag = m_projected_vec.magnitude;
+            Vector2 steering = Avoid();
 
-            if (projectedMag < mostThreateningDistance)
+            Vector2 TotalForce = new Vector2(0, 0);
+            float T;
+            if (LineIntersectsCircle())
             {
-                //this obstacle is the nearest threat to the boid
-                nearest_obstacle = obstacle;
+                T = CalculateT(m_projected_vec);
+                m_boid.Steering = TotalForce = CalculateBreakingForce(T) + CalculateSteeringForce(T);
+            }
+            else
+            {
+                TotalForce = Vector2.zero;
+                m_boid.Steering = Vector2.zero;
+
+                if (m_boid.Velocity.magnitude < m_boid.Max_Speed)
+                {
+                    m_boid.Steering = m_boid.Velocity.normalized * 0.1f;
+                }
             }
 
+            // Pass all parameters to the character control script.
+
+            m_boid.Steering = steering;
         }
-        return nearest_obstacle;
-    }
+        #endregion
 
-    private List<Obstacle> GetObstaclesInLineOfSight()
-    {
-        List<Obstacle> inVision = new List<Obstacle>();
+        #region Custom
 
-        float minProjectedMagnitude = m_LINE_OF_SIGHT;
-
-        List<Obstacle> collidableObstacles = GetNearestObstacles(GetRelaventObstacles());
-        foreach (Obstacle obstacle in collidableObstacles)
+        private void DrawBox()
         {
-            Vector2 obstaclePos = obstacle.gameObject.transform.position;
-            m_projected_vec = GetProjectedVector(obstaclePos, m_ahead.normalized);
-            float projectedMag = m_projected_vec.magnitude;
+            m_ahead = m_boid.Velocity.normalized * m_LINE_OF_SIGHT;
+            m_vertices[0] = new Vector2(m_ahead.y, m_ahead.x * -1).normalized * m_boid.Radius;
 
-            if (projectedMag < minProjectedMagnitude)
+            m_vertices[1] = m_vertices[0] + m_ahead;
+
+            m_vertices[2] = new Vector2(m_ahead.y * -1, m_ahead.x).normalized * m_boid.Radius + m_ahead;
+
+            m_vertices[3] = new Vector2(m_ahead.y * -1, m_ahead.x).normalized * m_boid.Radius;
+
+            for (int i = 0; i < m_vertices.Length; i++)
             {
-                //these are the obstacles that fall within the vision of our avoiding actor
-                inVision.Add(obstacle);
-
+                m_box.SetPosition(i, m_vertices[i]);
             }
         }
-        return inVision;
 
-    }
-    private List<Obstacle> GetNearestObstacles(List<Obstacle> relevants)
-    {
-        List<Obstacle> collidable_obstacles = new List<Obstacle>();
-        foreach (Obstacle relevant in relevants)
+        private Vector3 Avoid()
         {
-            float min_distance_to_projection = (relevant.Radius + m_boid.Radius) * (relevant.Radius + m_boid.Radius);
+            m_ahead = m_boid.Position + m_LINE_OF_SIGHT * m_boid.Velocity.normalized;
+            Obstacle nearest_obstacle = FindNearestObstacle();
+
+            Vector2 avoidance = Vector2.zero;
+
+            if (nearest_obstacle != null)
+            {
+                avoidance = m_MAX_AVOIDANCE_FORCE * (m_ahead - nearest_obstacle.Position).normalized;
+            }
+            else
+            {
+                avoidance = m_boid.Velocity;
+            }
+
+            return avoidance;
+        }
+
+        private float CalculateT(Vector2 projectedVec)
+        {
             Vector2 mypos = transform.position;
-            m_projected_vec = GetProjectedVector(relevant.Position, m_ahead.normalized);
-            float projected_distance_from_obstacle = ((m_projected_vec + mypos) - relevant.Position).sqrMagnitude;
-
-            if (projected_distance_from_obstacle < min_distance_to_projection)
-            {   //these objects will collide in the near future
-                collidable_obstacles.Add(relevant);
-            }
+            float distance = (mypos - projectedVec).magnitude;
+            return 1.0f - (distance / m_LINE_OF_SIGHT);
         }
-        return collidable_obstacles;
-
-    }
-
-    private List<Obstacle> GetRelaventObstacles()
-    {
-        m_obstalces = FindObjectsOfType<Obstacle>();
-        List<Obstacle> relaventCircles = new List<Obstacle>();
-        foreach (Obstacle obstacle in m_obstalces)
+        private Vector2 CalculateBreakingForce(float T)
         {
-            Vector2 distanceVec = obstacle.gameObject.transform.position - transform.position;
-            float costheta = Vector2.Dot(distanceVec, m_boid.Velocity) / (distanceVec.magnitude * m_boid.Velocity.magnitude);
-            if (costheta > 0)
-            {
-                relaventCircles.Add(obstacle);
+            return m_boid.Velocity.normalized * -1 * T * T;
+        }
+        private Vector2 CalculateSteeringForce(float T)
+        {
+            return m_boid.Steering * T;
+        }
 
+        private bool LineIntersectsCircle()
+        {
+            Obstacle obstacle = FindNearestObstacle();
+
+            if (obstacle != null)
+            {
+                m_projected_vec = GetProjectedVector(obstacle.transform.position, m_ahead);
+                m_boid.Steering = (obstacle.Position - (m_projected_vec + m_boid.Position)).normalized;
+                return true;
+            }
+            return false;
+        }
+
+        private Obstacle FindNearestObstacle()
+        {
+            Obstacle nearest_obstacle = null;
+            float mostThreateningDistance = m_LINE_OF_SIGHT;
+            List<Obstacle> inSight = GetObstaclesInLineOfSight();
+            if (inSight.Count == 0)
+                return nearest_obstacle;
+            foreach (Obstacle obstacle in inSight)
+            {
+                Vector2 obstaclePos = obstacle.gameObject.transform.position;
+                m_projected_vec = GetProjectedVector(obstaclePos, m_ahead.normalized);
+                float projectedMag = m_projected_vec.magnitude;
+
+                if (projectedMag < mostThreateningDistance)
+                {
+                    //this obstacle is the nearest threat to the boid
+                    nearest_obstacle = obstacle;
+                }
 
             }
+            return nearest_obstacle;
+        }
+
+        private List<Obstacle> GetObstaclesInLineOfSight()
+        {
+            List<Obstacle> in_sight = new List<Obstacle>();
+
+            float minProjectedMagnitude = m_LINE_OF_SIGHT;
+
+            List<Obstacle> collidableObstacles = GetNearestObstacles(GetRelevantObstacles());
+            foreach (Obstacle obstacle in collidableObstacles)
+            {
+                m_projected_vec = GetProjectedVector(obstacle.Position, m_ahead);
+                float projectedMag = m_projected_vec.magnitude;
+
+                if (projectedMag < minProjectedMagnitude)
+                {
+                    //these are the obstacles that fall within the vision of our avoiding actor
+                    in_sight.Add(obstacle);
+                }
+            }
+            return in_sight;
 
         }
-        return relaventCircles;
-    }
+        private List<Obstacle> GetNearestObstacles(List<Obstacle> relevants)
+        {
+            List<Obstacle> collidable_obstacles = new List<Obstacle>();
+            foreach (Obstacle relevant in relevants)
+            {
+                float min_distance_to_projection = (relevant.Radius + m_boid.Radius) * (relevant.Radius + m_boid.Radius);
+                Vector2 mypos = transform.position;
+                m_projected_vec = GetProjectedVector(relevant.Position, m_ahead.normalized);
+                float projected_distance_from_obstacle = ((m_projected_vec + mypos) - relevant.Position).sqrMagnitude;
 
-    private Vector3 GetProjectedVector(Vector2 obstacle_vector, Vector2 normal)
-    {
-        return Vector3.Project(obstacle_vector - m_boid.Position, m_ahead.normalized);
-    }
+                if (projected_distance_from_obstacle < min_distance_to_projection)
+                {   
+                    //these objects will collide in the near future
+                    collidable_obstacles.Add(relevant);
+                }
+            }
+            return collidable_obstacles;
 
-    #endregion
+        }
+
+        private List<Obstacle> GetRelevantObstacles()
+        {
+            m_obstalces = FindObjectsOfType<Obstacle>();
+            List<Obstacle> relevantCircles = new List<Obstacle>();
+            foreach (Obstacle obstacle in m_obstalces)
+            {
+                Vector2 distance_vector = obstacle.gameObject.transform.position - transform.position;
+                
+                float cos_theta = Vector2.Dot(distance_vector, m_boid.Velocity) / (distance_vector.magnitude * m_boid.Velocity.magnitude);
+                
+                if (cos_theta > 0)
+                {
+                    relevantCircles.Add(obstacle);
+                }
+            }
+            return relevantCircles;
+        }
+
+        private Vector2 GetProjectedVector(Vector2 obstacle_vector, Vector2 normal)
+        {
+            return Vector3.Project(obstacle_vector - m_boid.Position, m_ahead);
+        }
+
+        #endregion
+    }
 }
