@@ -12,12 +12,13 @@ namespace AISandbox
 
         #region Getters_Setters
 
-        float Max_Velocity { get; }
+        float Radius { get; }
+        float Max_Speed { get; }
         float Max_Steering_Acceleration { get; }
 
         Vector2 Position { get; set; }
-        Vector2 Velocity { get; set; }
         Vector2 Steering { get; set; }
+        Vector2 Velocity { get; set; }
 
         #endregion
 
