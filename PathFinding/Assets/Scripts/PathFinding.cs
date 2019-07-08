@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System;
+using UnityEngine.UI;
 
 namespace AISandbox
 {
@@ -10,7 +11,7 @@ namespace AISandbox
     {
         #region Variables
         public Grid m_grid;
-
+        public Text m_error;
         public int m_rows = 30;
         public int m_columns = 30;
         private PriorityQueue<int, GridNode> m_frontier;        // Open Set
@@ -116,6 +117,9 @@ namespace AISandbox
                     path_node.SetPriority(-1);
                 }
             }
+
+            m_visited.Clear();
+            m_path.Clear();
         }
 
 
@@ -162,6 +166,8 @@ namespace AISandbox
 
         public void FindPath()
         {
+            m_error.gameObject.SetActive(false);
+
             m_frontier = new PriorityQueue<int, GridNode>();
             m_visited = new Dictionary<GridNode, GridNode>();
             m_path = new List<GridNode>();
@@ -212,11 +218,17 @@ namespace AISandbox
             {
                 m_path.Add(path_constructor);
 
-                if (m_visited[path_constructor] != null)
+                if (m_visited.Keys.Contains(path_constructor) && m_visited[path_constructor] != null)
                 {
                     path_constructor = m_visited[path_constructor];
                     int priority = Heuristic(path_constructor, m_goal_node);
                     m_path_priorities.Add(priority);
+                }
+                else
+                {
+                    m_error.gameObject.SetActive(true);
+                    ClearLists();
+                    return;
                 }
             }
 
@@ -233,8 +245,8 @@ namespace AISandbox
 
         private int Heuristic(GridNode node_a, GridNode node_b)
         {
-            Vector3 dist = node_b.transform.position - node_a.transform.position;
-            return (int)(Mathf.Abs(dist.x) + Mathf.Abs(dist.y) + Mathf.Abs(dist.z));
+            Vector2 dist = node_a.transform.position - node_b.transform.position;
+            return (int)(Mathf.Abs(dist.x) + Mathf.Abs(dist.y));
         }
 
         public void MarkPath()
